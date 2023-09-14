@@ -1,9 +1,9 @@
 from cmath import log
 from distutils.sysconfig import PREFIX
 import discord
-#from dotenv import load_dotenv
+from dotenv import load_dotenv
 import os
-#load_dotenv()
+load_dotenv()
 import random
 import socket
 import time
@@ -22,7 +22,7 @@ from discord import app_commands
 
 
 #PREFIX = os.environ['PREFIX']
-TOKEN = "MTE1MTg0ODg3OTMxMTA0MDYzNA.G01TY7.OR6jtbnG25kyuM9oroYQX9H4Jig2YSXWNldi2E"#os.environ['TOKEN']
+TOKEN = os.environ['TOKEN']
 conn = pymysql.connect(host='svc.sel5.cloudtype.app', port=32049, user='root', password='conan0531**', db='hungrydb', charset='utf8')
 cur = conn.cursor()
 
