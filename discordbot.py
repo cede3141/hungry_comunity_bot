@@ -1,9 +1,9 @@
 from cmath import log
 from distutils.sysconfig import PREFIX
 import discord
-from dotenv import load_dotenv
+#from dotenv import load_dotenv
 import os
-load_dotenv()
+#load_dotenv()
 import random
 import socket
 import time
@@ -12,6 +12,7 @@ import mcstatus
 import pymysql
 from discord.ext import tasks
 import datetime
+import pymysql
 
 from datetime import datetime
 from discord.ext import commands
@@ -20,8 +21,10 @@ from mcstatus import JavaServer
 from discord import app_commands
 
 
-PREFIX = os.environ['PREFIX']
-TOKEN = os.environ['TOKEN']
+#PREFIX = os.environ['PREFIX']
+TOKEN = "MTE1MTg0ODg3OTMxMTA0MDYzNA.G01TY7.OR6jtbnG25kyuM9oroYQX9H4Jig2YSXWNldi2E"#os.environ['TOKEN']
+conn = pymysql.connect(host='svc.sel5.cloudtype.app', port=32049, user='root', password='conan0531**', db='hungrydb', charset='utf8')
+cur = conn.cursor()
 
 class aclient(discord.Client):
     def __init__(self):
@@ -34,50 +37,177 @@ class aclient(discord.Client):
             await tree.sync()
             self.synced = True
         print(f'{self.user}으로 로그인 하였습니다.')
-        game =  discord.Game('play.WaveMC.kr')
+        game =  discord.Game('헝그리 유튜브 시청')
         
         await self.change_presence(status=discord.Status.online, activity=game)
 
 client = aclient()
 tree =  app_commands.CommandTree(client)
 
-server = JavaServer.lookup("play.wavemc.kr")
-serverstatus = "bad"
+
+@tree.command(name = '경고', description='유저에게 경고를 부여합니다.')
+@commands.has_role("어드민")
+@commands.has_role("관리진")
+async def warning(interaction: discord.Interaction, 유저: discord.Member, reason: str): 
+    userinfo = []
+    userinfo.clear()
+    sql = 'SELECT * FROM warnings WHERE user = %s'
+    cur.execute(sql, 유저.id)
+    result = cur.fetchall()
+    for i in result:
+        for j in i:
+            userinfo.append(j)
+    
+    print(userinfo)
+
+    if not userinfo:
+        sqltemp = "INSERT INTO warnings (user, reason, totalwarn) VALUES (%s, %s, %s);"
+        cur.execute(sqltemp, (str(유저.id),reason, 1))
+        userinfo = [str(유저.id),reason, 0]
+        conn.commit()
+    else:
+        sqltemp = "INSERT INTO warnings (user, reason, totalwarn) VALUES (%s, %s, %s) ON DUPLICATE KEY UPDATE user=%s, reason=%s, totalwarn=%s;"
+        #sql2 = "INSERT INTO warnings (user, reason, totalwarn) VALUES (%s, %s, %s) ON DUPLICATE KEY UPDATE user=%s, reason=%s, totalwarn=%s;"
+        cur.execute(sqltemp, (str(유저.id),userinfo[1],userinfo[2],str(유저.id),reason, userinfo[2]+1))
+        conn.commit()
 
 
-#===============응답 ===============
-# @tasks.loop(seconds=1)
-# async def serverstatus(self):
-#     try:                
-#         status = server.status()
-#         if status.latency >= 150:
-#             if serverstatus != "bad":
-#                 embed=discord.Embed(title="서버 상태", color=0xff0000)
-#                 embed.add_field(name="서버의 지연시간이 불안정합니다.", value="서버의 지연시간이 150ms를 초과하였습니다.\n서버 접속이 불안정 또는 불가할 수 있습니다.", inline=True)
-#                 embed.set_footer(text="eunha.mcsv.kr")
-#                 await client.get_guild(1100416773213388900).get_channel(1111337783647273071).send(embed=embed)
+    embed=discord.Embed(title="경고", description="<@{}>에게 경고가 1회 부여되었습니다.".format(유저.id), color=0xFB3B3B)
+    embed.add_field(name="사유: {}".format(reason), value="누적 경고: {}".format(userinfo[2]+1), inline=False)
+    
+    await interaction.response.send_message(embed=embed,ephemeral=True)
+    channel = await client.fetch_channel("{}".format(1151879761468072006))
+    await channel.send(embed=embed)
 
-#                 serverstatus = "bad"
-#         else:
-#             if serverstatus != "good":
-#                 embed=discord.Embed(title="서버 상태", color=0x66ff00)
-#                 embed.add_field(name="서버에 정상적으로 접속이 가능합니다.", value="서버에 발견된 문제가 없습니다.", inline=True)
-#                 embed.set_footer(text="eunha.mcsv.kr")
-#                 await client.get_guild(1100416773213388900).get_channel(1111337783647273071).send(embed=embed)
-#                 serverstatus = "good"
+    embed=discord.Embed(title="경고", description="헝그리 커뮤니티에서 경고를 1회 부여받았습니다.".format(유저.id), color=0xFB3B3B)
+    embed.add_field(name="사유: {}".format(reason), value="누적 경고: {}".format(userinfo[2]+1), inline=False)
+    user = await client.fetch_user("{}".format(유저.id))
+    await user.send(embed=embed)
+    
 
-#             # 1초 sleep하여 중복 전송 방지
-#                 time.sleep(1)
-#     except:
-#         if serverstatus != "bad":
-#             embed=discord.Embed(title="서버 상태", color=0xff0000)
-#             embed.add_field(name="서버에 접속이 불가능합니다.", value="서버가 응답하지 않습니다.\n서버가 종료되었거나 문제가 발생하였습니다.", inline=True)
-#             embed.set_footer(text="eunha.mcsv.kr")
-#             await client.get_guild(1100416773213388900).get_channel(1111337783647273071).send(embed=embed)
-#             serverstatus = "bad"
+    
+
+@tree.command(name = '경고초기화', description='유저의 경고를 초기화합니다.')
+@commands.has_role("어드민")
+@commands.has_role("관리진")
+async def warning(interaction: discord.Interaction, 유저: discord.Member):
+    sql = 'UPDATE warnings SET reason = "None", totalwarn = "0" WHERE user = %s'
+    cur.execute(sql, str(유저.id))
+    conn.commit()
+    await interaction.response.send_message("<@{}>님의 경고가 초기화 되었습니다.".format(유저.id),ephemeral=True)
+    channel = await client.fetch_channel("{}".format(1151879761468072006))
+    await channel.send("<@{}>님의 경고가 초기화 되었습니다.".format(유저.id))
+    
+    embed=discord.Embed(title="경고 초기화", description="헝그리 커뮤니티에서의 경고가 초기화 되었습니다.".format(유저.id), color=0x68FB0E)
+    user = await client.fetch_user("{}".format(유저.id))
+    await user.send(embed=embed)
+
+@tree.command(name = '경고조회', description='다른 유저의 경고를 확인합니다.')
+@commands.has_role("어드민")
+@commands.has_role("관리진")
+async def warning(interaction: discord.Interaction, 유저: discord.Member): 
+    userinfo = []
+    userinfo.clear()
+    sql = 'SELECT * FROM warnings WHERE user = %s'
+    cur.execute(sql, 유저.id)
+    result = cur.fetchall()
+    for i in result:
+        for j in i:
+            userinfo.append(j)
+
+    if len(userinfo) == 0:
+        userinfo = [str(유저.id), "None", 0]
+    print(userinfo)
+    embed=discord.Embed(title="경고 조회", description="<@{}>님에게 부여된 경고".format(유저.id), color=0x18fdfd)
+    embed.add_field(name="최근 경고 사유: {}".format(userinfo[1]), value="누적 경고: {}".format(userinfo[2]), inline=False)
+    await interaction.response.send_message(embed=embed,ephemeral=True)
+
+
+@tree.command(name = '경고차감', description='유저의 경고를 차감합니다.')
+@commands.has_role("어드민")
+@commands.has_role("관리진")
+async def warning(interaction: discord.Interaction, 유저: discord.Member, 차감횟수:int): 
+    userinfo = []
+    userinfo.clear()
+    sql = 'SELECT * FROM warnings WHERE user = %s'
+    cur.execute(sql, 유저.id)
+    result = cur.fetchall()
+    for i in result:
+        for j in i:
+            userinfo.append(j)
+
+    if len(userinfo) == 0:
+        await interaction.response.send_message("해당 유저에게 부여된 경고가 없습니다.",ephemeral=True)
+        print(userinfo)
+    elif userinfo[2] == 0:
+        await interaction.response.send_message("해당 유저에게 부여된 경고가 없습니다.",ephemeral=True)
+        print(userinfo)
+    
+    else:
+        if userinfo[2] - 차감횟수 >= 0:
+            print(userinfo)
+            sql = 'UPDATE warnings SET totalwarn = %s WHERE user = %s'
+            cur.execute(sql, (str(userinfo[2]-차감횟수),str(유저.id)))
+            conn.commit()
+            embed=discord.Embed(title="경고 차감", description="<@{}>님의 경고가 {}회 차감되었습니다.".format(유저.id,차감횟수), color=0xE7FB00)
+            embed.add_field(name="최근 경고 사유: {}".format(userinfo[1]), value="누적 경고: {}".format(userinfo[2]-차감횟수), inline=False)
+            await interaction.response.send_message(embed=embed,ephemeral=True)
+            channel = await client.fetch_channel("{}".format(1151879761468072006))
+            await channel.send(embed=embed)
+
+            embed=discord.Embed(title="경고", description="헝그리 커뮤니티에서 경고가 {}회 차감되었습니다.".format(유저.id,차감횟수), color=0xE7FB00)
+            embed.add_field(name="최근 경고 사유: {}".format(userinfo[1]), value="누적 경고: {}".format(userinfo[2]-차감횟수), inline=False)
+            user = await client.fetch_user("{}".format(유저.id))
+            await user.send(embed=embed)
+
+        else:
+            await interaction.response.send_message("현재 유저에게 부여된 경고 보다 차감하려 하는 경고의 수가 더 큽니다.",ephemeral=True)
+
+
+@tree.command(name = '경고확인', description='자신의 경고를 확인합니다.')
+async def warning(interaction: discord.Interaction):
+    userinfo = []
+    userinfo.clear()
+    sql = 'SELECT * FROM warnings WHERE user = %s'
+    cur.execute(sql, interaction.user.id)
+    result = cur.fetchall()
+    for i in result:
+        for j in i:
+            userinfo.append(j)
+
+    if len(userinfo) == 0:
+        userinfo = [str(interaction.user.id), "None", 0]
+    print(userinfo)
+    embed=discord.Embed(title="경고 조회", description="<@{}>님에게 부여된 경고".format(interaction.user.id), color=0x18fdfd)
+    embed.add_field(name="최근 경고 사유: {}".format(userinfo[1]), value="누적 경고: {}".format(userinfo[2]), inline=False)
+    await interaction.response.send_message(embed=embed,ephemeral=True)
+
+@tree.command(name = "추방", description = "유저를 추방합니다.")
+@commands.has_role("어드민")
+@commands.has_role("관리진")
+async def warning(interaction: discord.Interaction, 유저: discord.Member, 사유: str):
+    await interaction.guild.kick(유저, reason=사유)
+    await interaction.response.send_message("<@{}>님이 서버에서 추방되었습니다.\n사유:{}".format(유저.id, 사유),ephemeral=True)
+    
+    embed=discord.Embed(title="추방", description="당신은 헝그리 커뮤니티에서 추방되었습니다.".format(유저.id), color=0xFB3B3B)
+    embed.add_field(name="사유: {}".format(사유), inline=False)
+    user = await client.fetch_user("{}".format(유저.id))
+    await user.send(embed=embed)
+    
+@tree.command(name = "차단", description = "유저를 차단합니다.")
+@commands.has_role("어드민")
+@commands.has_role("관리진")
+async def warning(interaction: discord.Interaction, 유저: discord.Member, 사유: str):
+    await interaction.guild.ban(유저, reason=사유)
+    await interaction.response.send_message("<@{}>님이 서버에서 차단되었습니다.\n사유:{}".format(유저.id, 사유),ephemeral=True)
+
+    embed=discord.Embed(title="차단", description="당신은 헝그리 커뮤니티에서 차단되었습니다.".format(유저.id), color=0xFB3B3B)
+    embed.add_field(name="사유: {}".format(사유), inline=False)
+    user = await client.fetch_user("{}".format(유저.id))
+    await user.send(embed=embed)
 
         
-@tree.command(name='안녕',description='웨이브 봇과 인사해보세요!')
+@tree.command(name='안녕',description='헝그리 봇과 인사해보세요!')
 async def slash2(interaction: discord.Interaction):
     await interaction.response.send_message("안녕하세요!")
     
@@ -87,23 +217,8 @@ async def slash2(interaction: discord.Interaction, 숫자: int, 숫자2: int):
     await interaction.response.send_message(random.randrange(숫자,숫자2+1))
 
 
-
-@tree.command(name='애교',description='~')
-async def 애교(interaction: discord.Interaction):
-    await interaction.response.send_message("웨이브는 애교같은 거 부릴 줄 몰라요~")
     
-@tree.command(name='바보',description='바보 아닙니다.')
-async def 바보(interaction: discord.Interaction):
-    await interaction.response.send_message("이이이잌...")
 
-@tree.command(name='서버상태',description='WaveMC의 정보를 알려줍니다.') #서버 상태 확인
-async def 서버상태(interaction: discord.Interaction):
-    try:                
-        status = server.status()
-        await interaction.response.send_message(f"서버상태\n접속자: {status.players.online} player(s)\n핑: {round(status.latency)} ms")
-        
-    except:
-        await interaction.response.send_message("서버에 접속할 수 없습니다.")
 
 # @tree.command(name='낚시대회',description='낚시대회에 관한 정보를 알려줍니다.') #낚대 상황
 # async def 낚시대회(interaction: discord.Interaction):
@@ -222,18 +337,18 @@ async def 이미지(interaction: discord.Interaction ,채널: discord.TextChanne
     else:
         await interaction.response.send_message("권한이 없거나 알 수 없는 오류가 발생하였습니다.",ephemeral=True)
 
-@tree.command(name='가위바위보',description='웨이브 봇과 가위바위보를 해보세요.') #가위바위보
-async def 가위바위보(interaction: discord.Interaction, 선택: str): 
-    user_id = interaction.user.id
-    rps_table = ['가위', '바위', '보']
-    bot = random.choice(rps_table)
-    result = rps_table.index(선택) - rps_table.index(bot) 
-    if result == 0:
-        await interaction.response.send_message(f'<@{user_id}>: {선택} , 봇: {bot}  비겼습니다.')
-    elif result == 1 or result == -2:
-        await interaction.response.send_message(f'<@{user_id}>: {선택} , 봇: {bot}  유저승')
-    else:
-        await interaction.response.send_message(f'<@{user_id}>: {선택} , 봇: {bot}  봇승')
+# @tree.command(name='가위바위보',description='웨이브 봇과 가위바위보를 해보세요.') #가위바위보
+# async def 가위바위보(interaction: discord.Interaction, 선택: str): 
+#     user_id = interaction.user.id
+#     rps_table = ['가위', '바위', '보']
+#     bot = random.choice(rps_table)
+#     result = rps_table.index(선택) - rps_table.index(bot) 
+#     if result == 0:
+#         await interaction.response.send_message(f'<@{user_id}>: {선택} , 봇: {bot}  비겼습니다.')
+#     elif result == 1 or result == -2:
+#         await interaction.response.send_message(f'<@{user_id}>: {선택} , 봇: {bot}  유저승')
+#     else:
+#         await interaction.response.send_message(f'<@{user_id}>: {선택} , 봇: {bot}  봇승')
 
         
 try:
