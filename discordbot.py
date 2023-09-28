@@ -23,8 +23,6 @@ from discord import app_commands
 
 #PREFIX = os.environ['PREFIX']
 TOKEN = os.environ['TOKEN']
-conn = pymysql.connect(host='svc.sel5.cloudtype.app', port=32049, user='root', password='conan0531**', db='hungrydb', charset='utf8')
-cur = conn.cursor()
 
 class aclient(discord.Client):
     def __init__(self):
@@ -49,6 +47,8 @@ tree =  app_commands.CommandTree(client)
 @commands.has_role("어드민")
 @commands.has_role("관리진")
 async def warning(interaction: discord.Interaction, 유저: discord.Member, reason: str): 
+    conn = pymysql.connect(host='svc.sel5.cloudtype.app', port=32049, user='root', password='conan0531**', db='hungrydb', charset='utf8')
+    cur = conn.cursor()
     userinfo = []
     userinfo.clear()
     sql = 'SELECT * FROM warnings WHERE user = %s'
@@ -57,6 +57,7 @@ async def warning(interaction: discord.Interaction, 유저: discord.Member, reas
     for i in result:
         for j in i:
             userinfo.append(j)
+    
     
     print(userinfo)
 
@@ -83,6 +84,7 @@ async def warning(interaction: discord.Interaction, 유저: discord.Member, reas
     embed.add_field(name="사유: {}".format(reason), value="누적 경고: {}".format(userinfo[2]+1), inline=False)
     user = await client.fetch_user("{}".format(유저.id))
     await user.send(embed=embed)
+    conn.close()
     
 
     
@@ -91,6 +93,8 @@ async def warning(interaction: discord.Interaction, 유저: discord.Member, reas
 @commands.has_role("어드민")
 @commands.has_role("관리진")
 async def warning(interaction: discord.Interaction, 유저: discord.Member):
+    conn = pymysql.connect(host='svc.sel5.cloudtype.app', port=32049, user='root', password='conan0531**', db='hungrydb', charset='utf8')
+    cur = conn.cursor()
     sql = 'UPDATE warnings SET reason = "None", totalwarn = "0" WHERE user = %s'
     cur.execute(sql, str(유저.id))
     conn.commit()
@@ -101,11 +105,14 @@ async def warning(interaction: discord.Interaction, 유저: discord.Member):
     embed=discord.Embed(title="경고 초기화", description="헝그리 커뮤니티에서의 경고가 초기화 되었습니다.".format(유저.id), color=0x68FB0E)
     user = await client.fetch_user("{}".format(유저.id))
     await user.send(embed=embed)
+    conn.close()
 
 @tree.command(name = '경고조회', description='다른 유저의 경고를 확인합니다.')
 @commands.has_role("어드민")
 @commands.has_role("관리진")
 async def warning(interaction: discord.Interaction, 유저: discord.Member): 
+    conn = pymysql.connect(host='svc.sel5.cloudtype.app', port=32049, user='root', password='conan0531**', db='hungrydb', charset='utf8')
+    cur = conn.cursor()
     userinfo = []
     userinfo.clear()
     sql = 'SELECT * FROM warnings WHERE user = %s'
@@ -122,11 +129,14 @@ async def warning(interaction: discord.Interaction, 유저: discord.Member):
     embed.add_field(name="최근 경고 사유: {}".format(userinfo[1]), value="누적 경고: {}".format(userinfo[2]), inline=False)
     await interaction.response.send_message(embed=embed,ephemeral=True)
 
+    conn.close()
 
 @tree.command(name = '경고차감', description='유저의 경고를 차감합니다.')
 @commands.has_role("어드민")
 @commands.has_role("관리진")
 async def warning(interaction: discord.Interaction, 유저: discord.Member, 차감횟수:int): 
+    conn = pymysql.connect(host='svc.sel5.cloudtype.app', port=32049, user='root', password='conan0531**', db='hungrydb', charset='utf8')
+    cur = conn.cursor()
     userinfo = []
     userinfo.clear()
     sql = 'SELECT * FROM warnings WHERE user = %s'
@@ -162,10 +172,12 @@ async def warning(interaction: discord.Interaction, 유저: discord.Member, 차�
 
         else:
             await interaction.response.send_message("현재 유저에게 부여된 경고 보다 차감하려 하는 경고의 수가 더 큽니다.",ephemeral=True)
-
+        conn.close()
 
 @tree.command(name = '경고확인', description='자신의 경고를 확인합니다.')
 async def warning(interaction: discord.Interaction):
+    conn = pymysql.connect(host='svc.sel5.cloudtype.app', port=32049, user='root', password='conan0531**', db='hungrydb', charset='utf8')
+    cur = conn.cursor()
     userinfo = []
     userinfo.clear()
     sql = 'SELECT * FROM warnings WHERE user = %s'
@@ -181,7 +193,7 @@ async def warning(interaction: discord.Interaction):
     embed=discord.Embed(title="경고 조회", description="<@{}>님에게 부여된 경고".format(interaction.user.id), color=0x18fdfd)
     embed.add_field(name="최근 경고 사유: {}".format(userinfo[1]), value="누적 경고: {}".format(userinfo[2]), inline=False)
     await interaction.response.send_message(embed=embed,ephemeral=True)
-
+    conn.close()
 @tree.command(name = "추방", description = "유저를 추방합니다.")
 @commands.has_role("어드민")
 @commands.has_role("관리진")
@@ -252,18 +264,14 @@ async def slash2(interaction: discord.Interaction, 숫자: int, 숫자2: int):
 @tree.command(name='패치노트',description='업데이트 정보를 확인하세요!')
 async def 패치노트(interaction: discord.Interaction):
     await interaction.response.send_message("""```#####################패치노트#####################
-2023/08/25 - 12:37
-- 임베드 명령어로 필드 여러개를 사용할 수 있도록 변경되었습니다.
-- /임베드사용법 명령어가 추가되었습니다.
+데이터 베이스 연결 안정화
 ```""",ephemeral=True)
     
 @tree.command(name='changelog',description='개발자 전용 명령어입니다.')
 async def changelog(interaction: discord.Interaction):
     if interaction.user.id == 766875066490683392:
         await interaction.response.send_message("""```#####################패치노트#####################
-2023/08/25 - 12:37
-- 임베드 명령어로 필드 여러개를 사용할 수 있도록 변경되었습니다.
-- /임베드사용법 명령어가 추가되었습니다.
+데이터 베이스 연결 안정화
 ```""")
     else:
         await interaction.response.send_message("권한이 없거나 알 수 없는 오류가 발생하였습니다.",ephemeral=True)
